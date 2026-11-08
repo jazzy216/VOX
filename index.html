@@ -23,13 +23,15 @@
 <title>VOX — Text to Speech</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500;700&family=Lexend:wght@400;700&family=Literata:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --radius: 14px;
     --mono: "JetBrains Mono", ui-monospace, monospace;
     --sans: "Atkinson Hyperlegible", system-ui, sans-serif;
     --reader-size: 1.35rem;
+    --reader-font: var(--sans);
+    --reader-lh: 1.7;
   }
   [data-theme="dark"]{
     --bg:#000; --panel:#0d0d0d; --line:#ffffff; --text:#ffffff; --muted:#d6d6d6;
@@ -42,6 +44,7 @@
     --sent:#e8edff; --danger:#b00000; --focus:#c2005a;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.5}
   body{min-height:100vh}
   ::selection{background:var(--accent);color:var(--accent-ink)}
@@ -67,7 +70,9 @@
   svg{width:20px;height:20px;flex:none}
   kbd{font-family:var(--mono);font-size:.78rem;border:2px solid var(--line);border-bottom-width:4px;border-radius:6px;padding:1px 6px}
 
-  .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+  .text-panel{position:sticky;top:16px}
+  @media (max-width:960px){.text-panel{position:static}}
   @media (max-width:960px){.grid{grid-template-columns:1fr}}
 
   .panel{border:3px solid var(--line);border-radius:var(--radius);background:var(--panel)}
@@ -80,12 +85,12 @@
   .tools{display:flex;gap:8px;flex-wrap:wrap}
   .tools button{min-height:38px;padding:6px 10px;font-size:.88rem}
 
-  textarea{display:block;width:100%;min-height:420px;resize:vertical;border:0;background:transparent;color:var(--text);font:400 var(--reader-size)/1.65 var(--sans);padding:20px;outline:none}
+  textarea{display:block;width:100%;height:clamp(320px,calc(100vh - 370px),900px);resize:vertical;border:0;background:transparent;color:var(--text);font:400 var(--reader-size)/var(--reader-lh) var(--reader-font);padding:20px;outline:none}
   textarea::placeholder{color:var(--muted);opacity:1}
   .editor{position:relative}
   .editor.drag::after{content:"Drop a .txt / .md file";position:absolute;inset:10px;border:3px dashed var(--accent);border-radius:10px;display:grid;place-items:center;font:700 1.2rem var(--mono);background:color-mix(in srgb,var(--bg) 85%,transparent)}
 
-  .reader{min-height:420px;max-height:70vh;overflow:auto;padding:20px;font-size:var(--reader-size);line-height:1.75;white-space:pre-wrap;word-wrap:break-word}
+  .reader{height:clamp(320px,calc(100vh - 370px),900px);overflow:auto;padding:20px;font-size:var(--reader-size);font-family:var(--reader-font);line-height:var(--reader-lh);white-space:pre-wrap;word-wrap:break-word}
   .reader .s{cursor:pointer;border-radius:6px;transition:background .15s}
   .reader .s:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
   .reader .s.active{background:var(--sent);box-shadow:0 0 0 3px var(--sent)}
@@ -151,15 +156,68 @@
   dialog td{padding:10px 16px;border-bottom:1px solid var(--sent)}
   dialog td:last-child{text-align:right;white-space:nowrap}
 
-  .toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-140%);background:var(--accent);color:var(--accent-ink);font-weight:700;padding:10px 18px;border-radius:10px;border:2px solid var(--line);transition:transform .25s;z-index:30}
-  .toast.show{transform:translate(-50%,0)}
+  .toast{position:fixed;left:50%;top:0;transform:translate(-50%,-110%);background:var(--accent);color:var(--accent-ink);font-weight:700;padding:10px 18px;border-radius:10px;border:2px solid var(--line);transition:transform .25s;z-index:30}
+  .toast.show{transform:translate(-50%,18px)}
+
+  /* Dialog bodies, lists, dictionary */
+  .dbody{padding:16px;display:flex;flex-direction:column;gap:12px;max-height:65vh;overflow:auto}
+  .dfoot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:3px solid var(--line);flex-wrap:wrap}
+  .check{display:flex;gap:12px;align-items:flex-start;font-weight:700;cursor:pointer}
+  .check input{width:22px;height:22px;accent-color:var(--accent);flex:none;margin-top:2px}
+  .check small{display:block;font-weight:400;color:var(--muted)}
+  .doc{display:flex;gap:10px;align-items:center;border:2px solid var(--line);border-radius:10px;padding:10px 12px}
+  .doc.current{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+  .doc .meta{flex:1;min-width:0}
+  .doc .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .doc .d{font:500 .8rem var(--mono);color:var(--muted)}
+  .doc button{min-height:38px;padding:6px 10px;font-size:.85rem}
+  .muted{color:var(--muted)}
+  input[type=text]{font:400 1rem var(--sans);color:var(--text);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-height:42px;width:100%;min-width:0}
+  .dict-add{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+  .dict-list{display:flex;flex-direction:column;gap:6px}
+  .dict-row{display:grid;grid-template-columns:1fr auto 1fr auto;gap:8px;align-items:center;border:2px solid var(--line);border-radius:10px;padding:6px 6px 6px 12px;font-size:.95rem}
+  .dict-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dict-row b{color:var(--accent)}
+  .dict-row button{min-height:34px;padding:2px 10px}
+  .seg{display:grid;grid-template-columns:repeat(4,1fr);border:2px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:0;border-radius:0;min-height:40px;padding:4px;justify-content:center;font-size:.85rem;border-right:2px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--text);color:var(--bg)}
+  .side .panel-head button.mini{min-height:34px;padding:4px 10px;font-size:.82rem}
+
+  /* Voice quality */
+  .btn-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn-pair button{justify-content:center}
+  .tier{font:700 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:2px solid var(--line)}
+  .tier.t3{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .tier.t2{background:var(--text);color:var(--bg)}
+  .tier.t0{border-color:var(--danger);color:var(--danger)}
+  .vmeta{font:500 .8rem var(--mono);color:var(--muted)}
+  .qcard{border:2px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+  .qcard.good{border-color:var(--accent)}
+  .qcard.weak{border-color:var(--danger)}
+  .qcard strong{display:block;font-size:1rem}
+  .qcard button{align-self:flex-start;min-height:38px;padding:6px 12px;font-size:.88rem}
+  .steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+  .steps code,.tipbox code{font-family:var(--mono);font-size:.85em;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+  .tipbox{border:3px solid var(--accent);border-radius:12px;padding:14px}
+  .tipbox h3,.other h3{margin:0 0 8px;font-size:1.05rem}
+  .other details{border:2px solid var(--line);border-radius:10px;padding:10px 12px}
+  .other details+details{margin-top:8px}
+  .other summary{cursor:pointer;font-weight:700}
+  .other details[open] summary{margin-bottom:8px}
+  .rank{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:.9rem}
+  .rank .tier{justify-self:start}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
   @media (max-width:640px){
     #play{min-width:0;flex:1}
     .tbtns{width:100%}
-    textarea,.reader{min-height:300px}
+    textarea,.reader{height:55vh}
     .brand p{display:none}
+    .hdr-actions .hl{display:none}
+    .hdr-actions button{padding:10px 12px}
+    .wrap{padding-bottom:170px}
   }
 </style>
 </head>
@@ -180,11 +238,11 @@
     <div class="hdr-actions">
       <button id="themeBtn" aria-label="Toggle light or dark theme">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>
-        <span id="themeLbl">Light</span>
+        <span id="themeLbl" class="hl">Light</span>
       </button>
-      <button id="keysBtn" aria-haspopup="dialog">
+      <button id="keysBtn" aria-haspopup="dialog" aria-label="Keyboard shortcuts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
-        Shortcuts
+        <span class="hl">Shortcuts</span>
       </button>
     </div>
   </header>
@@ -192,7 +250,7 @@
   <div class="banner" id="unsupported" role="alert">Your browser doesn't support the Web Speech API. Try a current version of Chrome, Edge, Safari, or Firefox.</div>
 
   <div class="grid">
-    <section class="panel" aria-label="Text">
+    <section class="panel text-panel" aria-label="Text">
       <div class="panel-head">
         <div class="tabs" role="tablist" aria-label="View">
           <button role="tab" id="tabEdit" aria-selected="true" aria-controls="editor">Edit</button>
@@ -203,6 +261,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Open file
           </label>
           <input type="file" id="file" accept=".txt,.md,.text,.csv,.html,.htm,text/*" class="sr">
+          <button id="libBtn" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM4 19a2 2 0 0 1 2-2h12"/></svg>Library</button>
+          <button id="saveBtn" title="Save to library (Ctrl + S)">Save</button>
+          <button id="cleanBtn" aria-haspopup="dialog">Clean up</button>
+          <button id="undoBtn" hidden>Undo clean-up</button>
           <button id="sampleBtn">Sample</button>
           <button id="copyBtn">Copy</button>
           <button id="clearBtn">Clear</button>
@@ -230,13 +293,23 @@
             <select id="lang"></select>
           </div>
           <div class="field">
-            <label for="voice" class="label">Voice</label>
+            <div class="field-row"><label for="voice" class="label">Voice</label><span class="tier" id="vTier" hidden></span></div>
             <select id="voice"></select>
+            <div class="vmeta" id="vMeta"></div>
           </div>
-          <button id="testBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
-            Preview voice
-          </button>
+          <div class="btn-pair">
+            <button id="testBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
+              Preview
+            </button>
+            <button id="bestBtn" title="Pick the most natural voice for this language">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/></svg>
+              Best voice
+            </button>
+          </div>
+          <div class="toggle"><span id="offLbl">On-device voices only<small class="muted" style="display:block;font-weight:400;font-size:.82rem">Online voices send your text to Microsoft, Google or Apple</small></span><label class="switch"><input type="checkbox" id="offline" aria-labelledby="offLbl"><span></span></label></div>
+          <div class="toggle"><span id="novLbl">Show novelty voices</span><label class="switch"><input type="checkbox" id="novelty" aria-labelledby="novLbl"><span></span></label></div>
+          <div class="qcard" id="qcard" role="status"></div>
         </div>
       </section>
 
@@ -259,11 +332,49 @@
             <input type="range" id="volume" min="0" max="1" step="0.05" value="1">
           </div>
           <div class="field">
+            <div class="field-row"><label for="gap" class="label">Pause between sentences</label><span class="val" id="gapV">0.0s</span></div>
+            <input type="range" id="gap" min="0" max="2" step="0.1" value="0">
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Reading display">
+        <div class="panel-head"><span class="label">Display</span></div>
+        <div class="ctl">
+          <div class="field">
+            <span class="label" id="fontLbl">Reading font</span>
+            <div class="seg" role="group" aria-labelledby="fontLbl">
+              <button data-font="atkinson" aria-pressed="true" style="font-family:'Atkinson Hyperlegible'">Hyper</button>
+              <button data-font="lexend" aria-pressed="false" style="font-family:Lexend">Lexend</button>
+              <button data-font="serif" aria-pressed="false" style="font-family:Literata">Serif</button>
+              <button data-font="mono" aria-pressed="false" style="font-family:'JetBrains Mono'">Mono</button>
+            </div>
+          </div>
+          <div class="field">
             <div class="field-row"><label for="size" class="label">Text size</label><span class="val" id="sizeV">135%</span></div>
             <input type="range" id="size" min="1" max="2.4" step="0.05" value="1.35">
           </div>
+          <div class="field">
+            <div class="field-row"><label for="lh" class="label">Line spacing</label><span class="val" id="lhV">1.70</span></div>
+            <input type="range" id="lh" min="1.3" max="2.4" step="0.05" value="1.7">
+          </div>
           <div class="toggle"><span id="autoLbl">Auto-scroll while reading</span><label class="switch"><input type="checkbox" id="autoscroll" checked aria-labelledby="autoLbl"><span></span></label></div>
           <div class="toggle"><span id="hlLbl">Highlight each word</span><label class="switch"><input type="checkbox" id="wordhl" checked aria-labelledby="hlLbl"><span></span></label></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Pronunciation">
+        <div class="panel-head"><span class="label">Pronunciation</span><span class="label" id="dictCount">0 rules</span></div>
+        <div class="ctl">
+          <p class="muted" style="margin:0;font-size:.9rem">Teach the voice how to say names, acronyms and jargon. Matches whole words, ignoring case.</p>
+          <form class="dict-add" id="dictForm" autocomplete="off">
+            <label class="sr" for="dictFrom">Written as</label>
+            <input type="text" id="dictFrom" placeholder="VUMC">
+            <label class="sr" for="dictTo">Say it as</label>
+            <input type="text" id="dictTo" placeholder="V U M C">
+            <button type="submit" aria-label="Add rule">Add</button>
+          </form>
+          <div class="dict-list" id="dictList"></div>
         </div>
       </section>
     </aside>
@@ -291,7 +402,7 @@
       <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="barFill"></i></div>
       <div class="pmeta">
         <span class="status" id="status"><span class="dot"></span><span id="statusTxt">Ready</span></span>
-        <span id="posTxt">Sentence 0 / 0</span>
+        <span><span id="posTxt">Sentence 0 / 0</span> · <span id="leftTxt">0:00 left</span></span>
       </div>
     </div>
   </div>
@@ -306,8 +417,35 @@
     <tr><td>Previous / next sentence</td><td><kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd></td></tr>
     <tr><td>Speed down / up</td><td><kbd>Alt</kbd> + <kbd>↓</kbd> / <kbd>↑</kbd></td></tr>
     <tr><td>Switch Edit / Read along</td><td><kbd>Alt</kbd> + <kbd>R</kbd></td></tr>
+    <tr><td>Save to library</td><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td></tr>
+    <tr><td>Read only a selection</td><td>Select text, then Play</td></tr>
   </table>
   <p style="padding:4px 16px 16px;color:var(--muted);font-size:.9rem">Voices come from your device and browser, so the list differs between Chrome, Edge, Safari and phones. Edge's "Online (Natural)" voices sound the most human.</p>
+</dialog>
+
+<dialog id="lib" aria-labelledby="libTitle">
+  <div class="panel-head"><span class="label" id="libTitle">Library</span><button data-close style="min-height:36px">Close</button></div>
+  <div class="dbody" id="libList"></div>
+  <div class="dfoot"><button id="libNew">New blank text</button><button id="libSave" class="primary">Save current text</button></div>
+</dialog>
+
+<dialog id="better" aria-labelledby="betterTitle" style="max-width:640px">
+  <div class="panel-head"><span class="label" id="betterTitle">Get the most natural voices</span><button data-close style="min-height:36px">Close</button></div>
+  <div class="dbody" id="betterBody"></div>
+</dialog>
+
+<dialog id="clean" aria-labelledby="cleanTitle">
+  <div class="panel-head"><span class="label" id="cleanTitle">Clean up text</span><button data-close style="min-height:36px">Close</button></div>
+  <div class="dbody">
+    <label class="check"><input type="checkbox" data-c="joinLines" checked><span>Fix broken lines<small>Joins lines split mid-sentence (common when pasting from PDFs).</small></span></label>
+    <label class="check"><input type="checkbox" data-c="hyphens" checked><span>Fix hyphenated breaks<small>"infor-↵mation" becomes "information".</small></span></label>
+    <label class="check"><input type="checkbox" data-c="markdown" checked><span>Strip Markdown<small>Removes #, **, _, `code` marks and keeps link text.</small></span></label>
+    <label class="check"><input type="checkbox" data-c="urls" checked><span>Remove URLs and emails<small>So the voice doesn't spell out "h t t p s colon slash slash".</small></span></label>
+    <label class="check"><input type="checkbox" data-c="cites"><span>Remove citations<small>Drops [1], [12], [citation needed].</small></span></label>
+    <label class="check"><input type="checkbox" data-c="emoji"><span>Remove emoji</span></label>
+    <label class="check"><input type="checkbox" data-c="spaces" checked><span>Tidy whitespace<small>Collapses repeated spaces and extra blank lines.</small></span></label>
+  </div>
+  <div class="dfoot"><span class="muted" id="cleanUndo" style="margin-right:auto;align-self:center"></span><button id="cleanApply" class="primary">Apply</button></div>
 </dialog>
 
 <script>
@@ -317,7 +455,7 @@
   const synth = window.speechSynthesis;
   const els = {
     text:$('text'), reader:$('reader'), editor:$('editor'), voice:$('voice'), lang:$('lang'),
-    rate:$('rate'), pitch:$('pitch'), volume:$('volume'), size:$('size'),
+    rate:$('rate'), pitch:$('pitch'), volume:$('volume'), size:$('size'), gap:$('gap'), lh:$('lh'),
     play:$('play'), playLbl:$('playLbl'), playIcon:$('playIcon'), bar:$('bar'), barFill:$('barFill'),
     status:$('status'), statusTxt:$('statusTxt'), posTxt:$('posTxt'), transport:$('transport')
   };
@@ -342,6 +480,13 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
   let run = 0;                // token to ignore stale callbacks
   let mode = 'idle';          // idle | playing | paused
   let lastSourceText = null;
+  let stopAt = Infinity;      // last sentence index to read (selection playback)
+  let totalWords = 0;
+  let docs = store.get('docs', []);
+  let curDoc = store.get('cur', null);
+  if (!docs.some(d => d.id === curDoc)) curDoc = null;
+  let rules = store.get('dict', []);
+  let dictRe = null, dictMap = {};
 
   /* ---------- toast ---------- */
   let toastT;
@@ -443,30 +588,172 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
 
   /* ---------- voices ---------- */
   const langName = (() => { try{ const dn = new Intl.DisplayNames([navigator.language||'en'], {type:'language'}); return c => { try{ return dn.of(c) || c; }catch{ return c; } }; }catch{ return c => c; } })();
+  /* Voice quality ranking.
+     Tier 3 = neural / natural, Tier 2 = good, Tier 1 = standard, Tier 0 = robotic / novelty. */
+  const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Deranged|Hysterical|Pipe Organ|Princess|Fred|Junior|Kathy|Ralph|Grandma|Grandpa|Eddy|Flo|Reed|Rocko|Sandy|Shelley)\b/i;
+  function rate(v){
+    const n = v.name, uri = (v.voiceURI || '') + ' ' + n;
+    let tier = 1, why = 'Standard device voice', novelty = false;
+    if (/espeak|mbrola|festival|pico\b|\bflite\b/i.test(uri)){ tier = 0; why = 'Robotic synthesizer (eSpeak)'; }
+    else if (NOVELTY.test(n)){ tier = 0; novelty = true; why = 'Novelty / legacy voice'; }
+    else if (OS === 'linux' && v.localService && /^[A-Z][\w ]+ \([^)]+\)$|^[A-Z][a-z]+$/.test(n)){ tier = 0; why = 'Likely eSpeak via speech-dispatcher'; }
+    else if (/Online \(Natural\)|\bNatural\b|Neural|Wavenet|Studio|Journey|Chirp|Polyglot/i.test(n)){ tier = 3; why = 'Neural voice — the most natural kind'; }
+    else if (/\(Premium\)/i.test(n)){ tier = 3; why = 'Apple Premium neural voice'; }
+    else if (/\(Enhanced\)/i.test(n)){ tier = 2; why = 'Apple Enhanced voice'; }
+    else if (/-x-[a-z]+-network/i.test(n)){ tier = 3; why = 'Google network voice (Android)'; }
+    else if (/-x-[a-z]+-local/i.test(n)){ tier = 2; why = 'Google on-device voice (Android)'; }
+    else if (/^Google\b/i.test(n)){ tier = 2; why = 'Google voice (Chrome, online)'; }
+    else if (/^Microsoft .*(Desktop)?/i.test(n)){ tier = 1; why = 'Classic Windows voice'; }
+    // within a tier: prefer the user's own region, default flags, then on-device
+    const nav = (navigator.language || 'en-US').toLowerCase(), vl = v.lang.replace('_','-').toLowerCase();
+    let score = tier * 100 + (vl === nav ? 8 : vl.slice(0,2) === nav.slice(0,2) ? 4 : 0) + (v.default ? 2 : 0) + (v.localService ? 1 : 0);
+    // a few voices widely considered the best of their platform
+    if (/\b(Ava|Andrew|Emma|Brian|Aria|Jenny|Guy|Sonia|Ryan|Natasha|William)\b.*Natural/i.test(n)) score += 5;
+    if (/\b(Ava|Zoe|Evan|Nathan|Noelle|Jamie|Serena)\b.*Premium/i.test(n)) score += 5;
+    return { tier, score, why, novelty };
+  }
+  const TIER_NAME = ['Basic','Standard','High quality','Natural'];
+  const meta = new Map();
+  const vInfo = v => { let m = meta.get(v.voiceURI + v.name); if (!m){ m = rate(v); meta.set(v.voiceURI + v.name, m); } return m; };
+  const visible = v => ($('novelty').checked || !vInfo(v).novelty) && (!$('offline').checked || v.localService);
+
   function loadVoices(){
-    voices = synth.getVoices().slice().sort((a,b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
+    voices = synth.getVoices().slice();
     if (!voices.length) return;
+    meta.clear();
     $('voiceCount').textContent = voices.length + ' available';
-    const langs = [...new Set(voices.map(v => v.lang.replace('_','-')))].sort((a,b)=>langName(a).localeCompare(langName(b)));
+    const pool = voices.filter(visible).length ? voices.filter(visible) : voices;
+    const langs = [...new Set(pool.map(v => v.lang.replace('_','-')))].sort((a,b)=>langName(a).localeCompare(langName(b)));
     const savedLang = store.get('lang', null);
-    const defLang = savedLang || langs.find(l => l === navigator.language) || langs.find(l => l.startsWith((navigator.language||'en').slice(0,2))) || 'all';
-    els.lang.innerHTML = `<option value="all">All languages (${voices.length})</option>` +
+    const nav = navigator.language || 'en-US';
+    const defLang = (savedLang && (savedLang === 'all' || langs.includes(savedLang))) ? savedLang
+      : langs.find(l => l === nav) || bestLangFor(nav.slice(0,2), pool, langs) || 'all';
+    els.lang.innerHTML = `<option value="all">All languages (${pool.length})</option>` +
       langs.map(l => `<option value="${l}">${esc(langName(l))} — ${l}</option>`).join('');
     els.lang.value = langs.includes(defLang) ? defLang : 'all';
     fillVoices();
+    updateQuality();
+  }
+  // among regional variants (en-US, en-GB...), prefer the one with the best voice
+  function bestLangFor(prefix, pool, langs){
+    const cands = langs.filter(l => l.toLowerCase().startsWith(prefix.toLowerCase()));
+    let best = null, bs = -1;
+    cands.forEach(l => pool.filter(v => v.lang.replace('_','-') === l).forEach(v => { const sc = vInfo(v).score; if (sc > bs){ bs = sc; best = l; } }));
+    return best;
+  }
+  function listFor(L){
+    return voices.filter(v => (L === 'all' || v.lang.replace('_','-') === L) && visible(v))
+      .sort((a,b) => vInfo(b).score - vInfo(a).score || a.name.localeCompare(b.name));
   }
   function fillVoices(){
     const L = els.lang.value;
-    const list = voices.filter(v => L === 'all' || v.lang.replace('_','-') === L);
-    const score = v => (/natural|neural|premium|enhanced/i.test(v.name)?0:1);
-    list.sort((a,b) => score(a)-score(b) || a.name.localeCompare(b.name));
-    els.voice.innerHTML = list.map(v => `<option value="${esc(v.voiceURI)}">${esc(v.name)}${v.localService?'':' · online'}${v.default?' · default':''}</option>`).join('');
-    const saved = store.get('voice', null);
+    const list = listFor(L);
+    if (!list.length){ els.voice.innerHTML = '<option value="">No voices match — turn off a filter</option>'; showVoiceMeta(); return; }
+    let html = '';
+    for (let t = 3; t >= 0; t--){
+      const group = list.filter(v => vInfo(v).tier === t);
+      if (!group.length) continue;
+      html += `<optgroup label="${'★'.repeat(t) || '·'} ${TIER_NAME[t]}">` + group.map(v =>
+        `<option value="${esc(v.voiceURI)}">${esc(prettyName(v))}${L === 'all' ? ' — ' + v.lang : ''}${v.localService ? '' : ' · online'}</option>`).join('') + '</optgroup>';
+    }
+    els.voice.innerHTML = html;
+    const saved = store.get('voice:' + L, null) || store.get('voice', null);
     if (saved && list.some(v => v.voiceURI === saved)) els.voice.value = saved;
+    else els.voice.value = list[0].voiceURI;     // auto-pick the most natural voice
+    showVoiceMeta();
+  }
+  const prettyName = v => v.name.replace(/^Microsoft\s+/, '').replace(/\s*-\s*[^-]+\([^)]*\)\s*$/, '').replace(/\s+Online \(Natural\)/, ' (Natural)');
+  function showVoiceMeta(){
+    const v = currentVoice(), tag = $('vTier');
+    if (!v){ tag.hidden = true; $('vMeta').textContent = ''; return; }
+    const i = vInfo(v);
+    tag.hidden = false; tag.className = 'tier t' + i.tier; tag.textContent = TIER_NAME[i.tier];
+    $('vMeta').textContent = `${i.why} · ${v.localService ? 'on-device' : 'online'} · ${v.lang}`;
   }
   const currentVoice = () => voices.find(v => v.voiceURI === els.voice.value) || null;
-  els.lang.onchange = () => { store.set('lang', els.lang.value); fillVoices(); store.set('voice', els.voice.value); lastSourceText = null; restartIfPlaying(); };
-  els.voice.onchange = () => { store.set('voice', els.voice.value); restartIfPlaying(); };
+  els.lang.onchange = () => { store.set('lang', els.lang.value); fillVoices(); lastSourceText = null; updateQuality(); restartIfPlaying(); };
+  els.voice.onchange = () => { store.set('voice:' + els.lang.value, els.voice.value); showVoiceMeta(); updateQuality(); restartIfPlaying(); };
+  $('bestBtn').onclick = () => {
+    const list = listFor(els.lang.value); if (!list.length) return;
+    els.voice.value = list[0].voiceURI; store.set('voice:' + els.lang.value, els.voice.value);
+    showVoiceMeta(); updateQuality(); restartIfPlaying(); toast('Using ' + prettyName(list[0]));
+  };
+  ['offline','novelty'].forEach(k => {
+    $(k).checked = store.get(k, false);
+    $(k).onchange = () => { store.set(k, $(k).checked); loadVoices(); restartIfPlaying(); };
+  });
+
+  /* ---------- device detection + guidance ---------- */
+  const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  const isIPad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  const OS = /iPhone|iPod/.test(ua) ? 'ios' : (/iPad/.test(ua) || isIPad) ? 'ipados' : /Android/.test(ua) ? 'android' : /CrOS/.test(ua) ? 'chromeos'
+    : /Windows/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) ? 'mac' : /Linux|X11/.test(ua + plat) ? 'linux' : 'other';
+  const BROWSER = /Edg(e|A|iOS)?\//.test(ua) ? 'edge' : /OPR\/|Opera/.test(ua) ? 'opera' : /SamsungBrowser/.test(ua) ? 'samsung'
+    : /Firefox|FxiOS/.test(ua) ? 'firefox' : /Chrome|CriOS|Chromium/.test(ua) ? 'chrome' : /Safari/.test(ua) ? 'safari' : 'other';
+  const OS_NAME = {windows:'Windows', mac:'Mac', ios:'iPhone', ipados:'iPad', android:'Android', chromeos:'ChromeOS', linux:'Linux', other:'this device'};
+  const BR_NAME = {edge:'Edge', chrome:'Chrome', firefox:'Firefox', safari:'Safari', opera:'Opera', samsung:'Samsung Internet', other:'this browser'};
+  const appleSteps = (where) => `<ol class="steps">
+      <li>Open <b>${where}</b> → <b>Accessibility</b> → <b>Spoken Content</b>.</li>
+      <li>Tap <b>${where === 'Settings' ? 'Voices' : 'System Voice'}</b> → ${where === 'Settings' ? '<b>English</b> (or your language)' : '<b>Manage Voices…</b>'}.</li>
+      <li>Download voices marked <b>Premium</b> (best) or <b>Enhanced</b> — e.g. Ava, Zoe, Evan or Nathan (Premium).</li>
+      <li>Come back and reload this page. VOX will select the new voice on its own.</li></ol>`;
+  const GUIDE = {
+    windows: { best:'Use Microsoft Edge', body:`<p style="margin:0 0 8px">Edge includes dozens of free <b>Online (Natural)</b> neural voices (Ava, Andrew, Emma, Brian, Jenny, Guy and more), which Chrome and Firefox on Windows don't get. Open this page in Edge and VOX picks one automatically.</p>
+      <p style="margin:0" class="muted">On Chrome, the "Google" voices are the next best. Windows 11's own "natural" Narrator voices aren't exposed to browsers.</p>` },
+    mac: { best: BROWSER === 'edge' ? 'Download Apple Premium voices' : 'Use Edge, or download Apple Premium voices', body:`<p style="margin:0 0 8px"><b>Option A:</b> open this page in Microsoft Edge to get the Online (Natural) neural voices instantly.</p><p style="margin:0 0 6px"><b>Option B (works offline):</b></p>${appleSteps('System Settings')}<p class="muted" style="margin:8px 0 0">Safari is the most reliable at picking these up after you download them.</p>` },
+    ios: { best:'Download Premium voices', body:`<p style="margin:0 0 6px">Every browser on iPhone uses Apple's speech engine, so this upgrade works in Safari, Chrome and Edge alike:</p>${appleSteps('Settings')}` },
+    ipados: { best:'Download Premium voices', body:`<p style="margin:0 0 6px">Every browser on iPad uses Apple's speech engine, so this upgrade works everywhere:</p>${appleSteps('Settings')}` },
+    android: { best:'Install Google high-quality voices', body:`<ol class="steps">
+      <li>Open <b>Settings</b> → search <b>Text-to-speech output</b>.</li>
+      <li>Set <b>Preferred engine</b> to <b>Speech Services by Google</b>.</li>
+      <li>Tap the ⚙ gear → <b>Install voice data</b> → your language → download the voice pack, then pick a voice you like.</li>
+      <li>Reload this page in Chrome. Voices ending in <code>-network</code> sound the most natural (they need a connection).</li></ol>
+      <p class="muted" style="margin:8px 0 0">Samsung phones may default to Samsung's engine — switching to Google's usually sounds better.</p>` },
+    chromeos: { best:'Turn on Google natural voices', body:`<ol class="steps">
+      <li>Open <b>Settings</b> → <b>Accessibility</b> → <b>Text-to-speech</b> → <b>Speech engine</b> / <b>Voices</b>.</li>
+      <li>Choose a <b>natural</b> Google voice for your language and let it download.</li>
+      <li>Reload this page.</li></ol>` },
+    linux: { best: BROWSER === 'chrome' ? 'Try Edge or offline Piper' : 'Switch to Chrome or Edge', body:`<p style="margin:0 0 8px">Linux browsers often fall back to <b>eSpeak</b>, which sounds robotic. In order of quality:</p>
+      <ol class="steps"><li><b>Microsoft Edge</b> for Linux — try it for the Online (Natural) neural voices.</li>
+      <li><b>Google Chrome</b> — includes Google's online voices (e.g. "Google US English").</li>
+      <li><b>Fully offline:</b> install <b>Piper</b> neural TTS and set it as the <code>speech-dispatcher</code> output module; Firefox and Chromium then use it.</li></ol>` },
+    other: { best:'Try Microsoft Edge or Chrome', body:`<p style="margin:0">Edge has the largest set of free natural voices; Chrome's Google voices are next.</p>` }
+  };
+  function updateQuality(){
+    const card = $('qcard'); if (!voices.length){ card.innerHTML = ''; return; }
+    const L = els.lang.value;
+    const all = voices.filter(v => L === 'all' || v.lang.replace('_','-') === L);
+    const top = all.reduce((m, v) => Math.max(m, vInfo(v).tier), 0);
+    const nNat = all.filter(v => vInfo(v).tier === 3).length;
+    const cur = currentVoice(), ct = cur ? vInfo(cur).tier : 0;
+    const where = `${BR_NAME[BROWSER]} on ${OS_NAME[OS]}`;
+    let cls, html;
+    if (top === 3){
+      cls = 'good';
+      html = `<span><strong>★★★ Natural voices ready</strong>${where} has ${nNat} neural voice${nNat === 1 ? '' : 's'}${L === 'all' ? '' : ' for ' + esc(langName(L))}.${ct < 3 ? ' You\'re using a lower tier — hit <b>Best voice</b>.' : ''}</span>`;
+    } else {
+      cls = top <= 1 ? 'weak' : '';
+      const hidden = $('offline').checked && voices.some(v => !v.localService && vInfo(v).tier === 3 && (L === 'all' || v.lang.replace('_','-') === L));
+      html = `<span><strong>${top === 2 ? '★★ Good voices only' : top === 1 ? '★ Standard voices only' : 'Robotic voices only'}</strong>${hidden ? 'Natural online voices are hidden by "On-device only".' : `Best available on ${where}: ${TIER_NAME[top]}. <b>${GUIDE[OS].best}</b> for natural voices.`}</span>`;
+    }
+    html += `<button id="betterBtn" aria-haspopup="dialog">How to get better voices</button>`;
+    card.className = 'qcard ' + cls; card.innerHTML = html;
+    $('betterBtn').onclick = openBetter;
+  }
+  function openBetter(){
+    const g = GUIDE[OS];
+    const others = Object.keys(GUIDE).filter(k => k !== OS && k !== 'other' && !(OS === 'ios' && k === 'ipados') && !(OS === 'ipados' && k === 'ios'));
+    const counts = [3,2,1,0].map(t => [t, voices.filter(v => vInfo(v).tier === t).length]);
+    $('betterBody').innerHTML = `
+      ${counts[0][1] ? `<div class="tipbox"><h3>✓ ${BR_NAME[BROWSER]} on ${OS_NAME[OS]} already has natural voices</h3>
+        <p style="margin:0">You have ${counts[0][1]} neural voice${counts[0][1] === 1 ? '' : 's'}, and VOX picks the best one for each language automatically. Nothing to install. Want even more variety? <span class="muted">${esc(g.best)}.</span></p></div>`
+      : `<div class="tipbox"><h3>Your setup: ${BR_NAME[BROWSER]} on ${OS_NAME[OS]} — ${esc(g.best)}</h3>${g.body}</div>`}
+      <div><h3 style="margin:0 0 8px;font-size:1.05rem">Voices found right now</h3><div class="rank">${counts.map(([t,c]) =>
+        `<span class="tier t${t}">${TIER_NAME[t]}</span><span>${c} voice${c === 1 ? '' : 's'}</span>`).join('')}</div></div>
+      <div class="other"><h3>Other devices</h3>${others.map(k => `<details><summary>${OS_NAME[k]} — ${esc(GUIDE[k].best)}</summary>${GUIDE[k].body}</details>`).join('')}</div>
+      <p class="muted" style="margin:0;font-size:.88rem">Ranking, best to worst: Edge Online (Natural) and Apple Premium → Apple Enhanced and Google voices → standard system voices → eSpeak. VOX ranks every voice it finds and selects the best one automatically. Online voices send the text to the vendor to be spoken; use "On-device voices only" for anything sensitive.</p>`;
+    $('better').showModal();
+  }
 
   /* ---------- sliders ---------- */
   function paintRanges(){
@@ -479,7 +766,10 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
     $('pitchV').textContent = (+els.pitch.value).toFixed(2);
     $('volumeV').textContent = Math.round(els.volume.value*100) + '%';
     $('sizeV').textContent = Math.round(els.size.value*100) + '%';
+    $('gapV').textContent = (+els.gap.value).toFixed(1) + 's';
+    $('lhV').textContent = (+els.lh.value).toFixed(2);
     document.documentElement.style.setProperty('--reader-size', els.size.value + 'rem');
+    document.documentElement.style.setProperty('--reader-lh', els.lh.value);
     paintRanges(); updateStats();
   }
   let restartT;
@@ -488,7 +778,66 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
     if (mode === 'playing') restartT = setTimeout(() => speakFrom(idx), 250);
   }
   ['rate','pitch','volume'].forEach(k => els[k].addEventListener('input', () => { syncLabels(); store.set(k, +els[k].value); restartIfPlaying(); }));
-  els.size.addEventListener('input', () => { syncLabels(); store.set('size', +els.size.value); });
+  ['size','gap','lh'].forEach(k => els[k].addEventListener('input', () => { syncLabels(); store.set(k, +els[k].value); }));
+
+  /* ---------- fonts ---------- */
+  const FONTS = { atkinson:"'Atkinson Hyperlegible', system-ui, sans-serif", lexend:"Lexend, system-ui, sans-serif", serif:"Literata, Georgia, serif", mono:"'JetBrains Mono', ui-monospace, monospace" };
+  function setFont(f){
+    if (!FONTS[f]) f = 'atkinson';
+    document.documentElement.style.setProperty('--reader-font', FONTS[f]);
+    document.querySelectorAll('[data-font]').forEach(b => b.setAttribute('aria-pressed', b.dataset.font === f));
+    store.set('font', f);
+  }
+  document.querySelectorAll('[data-font]').forEach(b => b.onclick = () => setFont(b.dataset.font));
+
+  /* ---------- pronunciation dictionary ---------- */
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function buildDict(){
+    dictMap = {};
+    rules.forEach(r => dictMap[r.from.toLowerCase()] = r.to);
+    const keys = rules.map(r => r.from).sort((a,b) => b.length - a.length).map(reEsc);
+    dictRe = keys.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${keys.join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null;
+    $('dictCount').textContent = rules.length + (rules.length === 1 ? ' rule' : ' rules');
+    $('dictList').innerHTML = rules.length ? rules.map((r,i) =>
+      `<div class="dict-row"><span title="${esc(r.from)}">${esc(r.from)}</span><b aria-hidden="true">→</b><span title="${esc(r.to)}">${esc(r.to)}</span><button data-del="${i}" aria-label="Remove rule for ${esc(r.from)}">✕</button></div>`).join('')
+      : '<span class="muted" style="font-size:.9rem">No rules yet.</span>';
+    store.set('dict', rules);
+  }
+  // returns spoken text plus segments for mapping spoken char positions back to the original
+  function applyDict(t){
+    if (!dictRe) return { s:t, segs:null };
+    let out = '', last = 0; const segs = [];
+    for (const m of t.matchAll(dictRe)){
+      out += t.slice(last, m.index);
+      const rep = dictMap[m[0].toLowerCase()] ?? m[0];
+      segs.push({ sp:out.length, sl:rep.length, op:m.index, ol:m[0].length });
+      out += rep; last = m.index + m[0].length;
+    }
+    return { s: out + t.slice(last), segs: segs.length ? segs : null };
+  }
+  function mapIdx(segs, ci){
+    if (!segs) return [ci, 0];
+    let delta = 0;
+    for (const g of segs){
+      if (ci < g.sp) return [ci - delta, 0];
+      if (ci < g.sp + g.sl) return [g.op, g.ol];
+      delta += g.sl - g.ol;
+    }
+    return [ci - delta, 0];
+  }
+  $('dictForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const from = $('dictFrom').value.trim(), to = $('dictTo').value.trim();
+    if (!from || !to){ toast('Fill in both boxes'); return; }
+    rules = rules.filter(r => r.from.toLowerCase() !== from.toLowerCase());
+    rules.push({ from, to }); buildDict();
+    $('dictFrom').value = $('dictTo').value = ''; $('dictFrom').focus();
+    toast(`"${from}" → "${to}"`); restartIfPlaying();
+  });
+  $('dictList').addEventListener('click', e => {
+    const b = e.target.closest('[data-del]'); if (!b) return;
+    rules.splice(+b.dataset.del, 1); buildDict(); restartIfPlaying();
+  });
   document.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => { els.rate.value = b.dataset.rate; els.rate.dispatchEvent(new Event('input')); });
   $('resetBtn').onclick = () => { els.rate.value=1; els.pitch.value=1; els.volume.value=1; ['rate','pitch','volume'].forEach(k=>store.set(k,1)); syncLabels(); restartIfPlaying(); toast('Delivery reset'); };
   ['autoscroll','wordhl'].forEach(k => { $(k).checked = store.get(k, true); $(k).onchange = () => store.set(k, $(k).checked); });
@@ -496,15 +845,132 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
   /* ---------- stats ---------- */
   function updateStats(){
     const t = els.text.value;
-    const words = (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
+    const words = totalWords = (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
     $('stWords').textContent = words.toLocaleString();
     $('stChars').textContent = t.length.toLocaleString();
-    $('stSent').textContent = (t.trim() ? split(t).length : 0).toLocaleString();
+    if (mode === 'idle') sentences = t.trim() ? split(t) : [];
+    $('stSent').textContent = (t.trim() ? (mode === 'idle' ? sentences : split(t)).length : 0).toLocaleString();
+    if (mode === 'idle') updatePos();
     const secs = Math.round(words / (165 * +els.rate.value) * 60);
     $('stTime').textContent = Math.floor(secs/60) + ':' + String(secs%60).padStart(2,'0');
   }
   let saveT;
-  els.text.addEventListener('input', () => { updateStats(); clearTimeout(saveT); saveT = setTimeout(() => store.set('text', els.text.value), 400); });
+  els.text.addEventListener('input', () => {
+    updateStats(); clearTimeout(saveT);
+    saveT = setTimeout(() => {
+      store.set('text', els.text.value);
+      const d = docs.find(d => d.id === curDoc);   // autosave into the open library doc
+      if (d){ d.text = els.text.value; d.title = titleOf(d.text); d.updated = Date.now(); d.pos = 0; store.set('docs', docs); }
+    }, 400);
+  });
+
+  /* ---------- library ---------- */
+  const titleOf = t => ((t.split('\n').find(l => l.replace(/[#>*_\-\s]/g,'')) || 'Untitled').replace(/^[\s#>*_-]+/, '').replace(/[*_`]/g, '').trim() || 'Untitled').slice(0, 70);
+  const fmtDate = ms => new Date(ms).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  function saveDoc(){
+    const text = els.text.value;
+    if (!text.trim()){ toast('Nothing to save'); return; }
+    let d = docs.find(d => d.id === curDoc);
+    if (!d){ d = { id: Date.now().toString(36), pos: 0 }; docs.unshift(d); curDoc = d.id; store.set('cur', curDoc); }
+    Object.assign(d, { text, title: titleOf(text), updated: Date.now() });
+    store.set('docs', docs); toast('Saved to library'); renderLib();
+  }
+  function renderLib(){
+    const box = $('libList');
+    if (!docs.length){ box.innerHTML = '<p class="muted" style="margin:0">Your library is empty. Save the current text to keep it, and VOX will remember where you stopped listening.</p>'; return; }
+    box.innerHTML = docs.slice().sort((a,b) => b.updated - a.updated).map(d => {
+      const w = (d.text.match(/\S+/g) || []).length;
+      return `<div class="doc${d.id === curDoc ? ' current' : ''}"><div class="meta"><div class="t">${esc(d.title)}</div>
+        <div class="d">${fmtDate(d.updated)} · ${w.toLocaleString()} words${d.pos ? ' · stopped at sentence ' + (d.pos + 1) : ''}</div></div>
+        <button data-open="${d.id}">${d.id === curDoc ? 'Open ✓' : 'Open'}</button><button data-rm="${d.id}" aria-label="Delete ${esc(d.title)}">Delete</button></div>`;
+    }).join('');
+  }
+  $('libList').addEventListener('click', e => {
+    const o = e.target.closest('[data-open]'), r = e.target.closest('[data-rm]');
+    if (o){
+      const d = docs.find(d => d.id === o.dataset.open); if (!d) return;
+      const resumeAt = d.pos || 0;
+      curDoc = null; setText(d.text, true);          // detach first so stop() can't overwrite its position
+      curDoc = d.id; store.set('cur', curDoc);
+      idx = Math.min(resumeAt, Math.max(0, split(d.text).length - 1));
+      rememberPos();
+      updatePos(); $('lib').close();
+      toast(idx ? `Opened — resumes at sentence ${idx + 1}` : 'Opened');
+    }
+    if (r){
+      if (r.dataset.armed !== '1'){ r.dataset.armed = '1'; r.textContent = 'Confirm'; setTimeout(() => { if (r.isConnected){ r.dataset.armed = ''; r.textContent = 'Delete'; } }, 3000); return; }
+      docs = docs.filter(d => d.id !== r.dataset.rm);
+      if (curDoc === r.dataset.rm){ curDoc = null; store.set('cur', null); }
+      store.set('docs', docs); renderLib();
+    }
+  });
+  $('libBtn').onclick = () => { renderLib(); $('lib').showModal(); };
+  $('saveBtn').onclick = saveDoc;
+  $('libSave').onclick = saveDoc;
+  $('libNew').onclick = () => { curDoc = null; store.set('cur', null); setText(''); $('lib').close(); els.text.focus(); };
+  function rememberPos(){
+    store.set('pos', { len: els.text.value.length, idx });
+    const d = docs.find(d => d.id === curDoc);
+    if (d && d.pos !== idx){ d.pos = idx; store.set('docs', docs); }
+  }
+
+  /* ---------- clean up ---------- */
+  const CLEAN = {
+    hyphens: t => t.replace(/(\p{L})-\n[ \t]*(\p{Ll})/gu, '$1$2'),
+    joinLines: t => {
+      const lines = t.split('\n'), out = [];
+      const solo = l => /^\s*(#|[-*•+]\s|\d+[.)]\s|>|\|)/.test(l);   // headings, list items, quotes, tables stay on their own line
+      for (const l of lines){
+        const prev = out.length ? out[out.length - 1] : null;
+        if (prev !== null && prev.trim() && l.trim() && !solo(l) && !/^\s*#/.test(prev)) out[out.length - 1] = prev.replace(/\s+$/, '') + ' ' + l.trim();
+        else out.push(l);
+      }
+      return out.join('\n');
+    },
+    markdown: t => t
+      .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1')
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+      .replace(/^[ \t]*>[ \t]?/gm, '')
+      .replace(/^[ \t]*[-*+][ \t]+/gm, '')
+      .replace(/^[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm, '')
+      .replace(/(\*\*|__)(.+?)\1/g, '$2')
+      .replace(/(^|[^\w*])[*_](?!\s)(.+?)(?<!\s)[*_](?!\w)/g, '$1$2')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/^\|?[ \t:|-]+\|[ \t:|-]*$/gm, '')
+      .replace(/[ \t]*\|[ \t]*/g, ', '),
+    urls: t => t.replace(/\bhttps?:\/\/[^\s)>\]]+/gi, '').replace(/\bwww\.[^\s)>\]]+/gi, '').replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, ''),
+    cites: t => t.replace(/\[(?:\d+(?:\s*[,–-]\s*\d+)*|citation needed)\]/gi, ''),
+    emoji: t => t.replace(/\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*/gu, ''),
+    spaces: t => t.replace(/[ \t]+/g, ' ').replace(/ +\n/g, '\n').replace(/\n +/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/ ([,.;:!?])/g, '$1').trim()
+  };
+  const ORDER = ['hyphens','joinLines','markdown','urls','cites','emoji','spaces'];
+  const cleanBoxes = [...document.querySelectorAll('[data-c]')];
+  const savedClean = store.get('clean', null);
+  if (savedClean) cleanBoxes.forEach(b => b.checked = !!savedClean[b.dataset.c]);
+  $('cleanBtn').onclick = () => { $('cleanUndo').textContent = ''; $('clean').showModal(); };
+  $('cleanApply').onclick = () => {
+    const on = Object.fromEntries(cleanBoxes.map(b => [b.dataset.c, b.checked]));
+    store.set('clean', on);
+    const before = els.text.value;
+    const after = ORDER.reduce((t, k) => on[k] ? CLEAN[k](t) : t, before);
+    if (after === before){ $('cleanUndo').textContent = 'Already clean.'; return; }
+    setText(after, false, true);
+    undoText = before;   // set after insert, since the insert fires beforeinput
+    $('clean').close();
+    $('undoBtn').hidden = false;
+    toast(`Cleaned — ${(before.length - after.length).toLocaleString()} characters removed`);
+  };
+  let undoText = null;
+  $('undoBtn').onclick = () => {
+    if (undoText === null) return;
+    setText(undoText, false, true); undoText = null; $('undoBtn').hidden = true; toast('Clean-up undone');
+  };
+  els.text.addEventListener('beforeinput', () => { if (undoText !== null && document.activeElement === els.text){ undoText = null; $('undoBtn').hidden = true; } });
+  document.querySelectorAll('dialog').forEach(d => {
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); });
+  });
 
   /* ---------- playback ---------- */
   function setMode(m){
@@ -524,11 +990,15 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
     els.barFill.style.width = pct + '%';
     els.bar.setAttribute('aria-valuenow', Math.round(pct));
     els.posTxt.textContent = `Sentence ${sentences.length ? Math.min(idx+1, sentences.length) : 0} / ${sentences.length}`;
+    const secs = Math.max(0, Math.round(totalWords * (1 - pct/100) / (165 * +els.rate.value) * 60));
+    $('leftTxt').textContent = Math.floor(secs/60) + ':' + String(secs%60).padStart(2,'0') + ' left';
   }
 
-  function speakFrom(i){
+  function speakFrom(i, last){
     if (!synth) return;
     renderReader();
+    if (last !== undefined) stopAt = last;
+    else if (i > stopAt || i < 0) stopAt = Infinity;
     if (!sentences.length){ toast('Add some text first'); setView('edit'); els.text.focus(); return; }
     if (els.reader.hidden) setView('read');
     idx = Math.max(0, Math.min(i, sentences.length - 1));
@@ -539,31 +1009,45 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
     setTimeout(() => { if (token === run) speakCurrent(token); }, 60);
   }
   function speakCurrent(token){
-    if (token !== run) return;
-    if (idx >= sentences.length){ finish(); return; }
+    if (token !== run || mode === 'paused') return;   // resume() restarts if paused during a gap
+    if (idx >= sentences.length || idx > stopAt){ finish(); return; }
     const s = sentences[idx];
-    const u = new SpeechSynthesisUtterance(s.text);
+    const { s: spoken, segs } = applyDict(s.text);
+    const u = new SpeechSynthesisUtterance(spoken);
     const v = currentVoice();
     if (v){ u.voice = v; u.lang = v.lang; }
     u.rate = +els.rate.value; u.pitch = +els.pitch.value; u.volume = +els.volume.value;
-    u.onstart = () => { if (token !== run) return; markSentence(idx); updatePos(); };
-    u.onboundary = e => { if (token !== run || e.name === 'sentence') return; markWord(idx, e.charIndex, e.charLength); updatePos(e.charIndex); };
-    u.onend = () => { if (token !== run) return; const el = sentEl(idx); if (el) el.textContent = s.text; idx++; speakCurrent(token); };
+    u.onstart = () => { if (token !== run) return; markSentence(idx); updatePos(); rememberPos(); };
+    u.onboundary = e => {
+      if (token !== run || e.name === 'sentence') return;
+      const [ci, len] = mapIdx(segs, e.charIndex);
+      markWord(idx, ci, len || (segs ? 0 : e.charLength)); updatePos(ci);
+    };
+    u.onend = () => {
+      if (token !== run) return;
+      const el = sentEl(idx); if (el) el.textContent = s.text;
+      const nextStart = sentences[idx+1] ? sentences[idx+1].start : els.text.value.length;
+      const para = /\n\s*\n/.test(els.text.value.slice(s.start, nextStart));
+      const wait = (+els.gap.value + (para ? 0.45 : 0)) * 1000;
+      idx++;
+      if (wait > 0 && idx < sentences.length && idx <= stopAt) setTimeout(() => speakCurrent(token), wait);
+      else speakCurrent(token);
+    };
     u.onerror = e => { if (token !== run || e.error === 'interrupted' || e.error === 'canceled') return; toast('Speech error: ' + e.error); idx++; speakCurrent(token); };
     synth.speak(u);
     // Chrome sometimes stalls paused synth after tab switch — kick it
     if (synth.paused && mode === 'playing') synth.resume();
   }
   function finish(){
-    run++; setMode('idle'); idx = 0;
+    run++; setMode('idle'); idx = 0; stopAt = Infinity; rememberPos();
     els.barFill.style.width = '100%';
     els.reader.querySelectorAll('.s').forEach(el => { el.classList.remove('active'); el.classList.add('done'); });
     els.statusTxt.textContent = 'Finished';
   }
   function stop(){
-    run++; synth && synth.cancel(); setMode('idle'); idx = 0;
-    els.reader.querySelectorAll('.s').forEach((el,n) => { el.classList.remove('active','done'); el.textContent = sentences[n].text; });
-    updatePos();
+    run++; synth && synth.cancel(); setMode('idle'); idx = 0; stopAt = Infinity;
+    els.reader.querySelectorAll('.s').forEach((el,n) => { el.classList.remove('active','done'); if (sentences[n]) el.textContent = sentences[n].text; });
+    updatePos(); rememberPos();
   }
   function toggle(){
     if (!synth) return;
@@ -573,7 +1057,27 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
       // if the engine dropped the utterance while paused, restart the sentence
       setTimeout(() => { if (mode === 'playing' && !synth.speaking) speakFrom(idx); }, 300);
     }
-    else { lastSourceText = lastSourceText === els.text.value ? lastSourceText : null; speakFrom(idx); }
+    else {
+      const a = els.text.selectionStart, b = els.text.selectionEnd;
+      if (!els.editor.hidden && b > a && els.text.value.slice(a, b).trim()){
+        renderReader();
+        const find = pos => { let i = sentences.findIndex((s, n) => n === sentences.length-1 || sentences[n+1].start > pos); return Math.max(0, i); };
+        const first = find(a), last = find(b - 1);
+        toast(first === last ? 'Reading selected sentence' : `Reading selection (${last - first + 1} sentences)`);
+        speakFrom(first, last);
+      } else speakFrom(idx);
+    }
+  }
+  /* hardware / lock-screen media keys */
+  if ('mediaSession' in navigator){
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({ title: 'VOX — Text to Speech', artist: 'Read aloud' });
+      navigator.mediaSession.setActionHandler('play', () => { if (mode !== 'playing') toggle(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (mode === 'playing') toggle(); });
+      navigator.mediaSession.setActionHandler('stop', () => stop());
+      navigator.mediaSession.setActionHandler('previoustrack', () => step(-1));
+      navigator.mediaSession.setActionHandler('nexttrack', () => step(1));
+    }catch{}
   }
   const step = d => { if (!sentences.length) renderReader(); speakFrom(idx + d); };
 
@@ -601,7 +1105,19 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
   };
 
   /* ---------- text tools ---------- */
-  function setText(t){ stop(); els.text.value = t; lastSourceText = null; updateStats(); store.set('text', t); setView('edit'); }
+  // keepDoc: stay attached to the open library doc; undoable: keep native Ctrl+Z history
+  function setText(t, keepDoc, undoable){
+    stop();
+    if (!keepDoc && !undoable){ curDoc = null; store.set('cur', null); }
+    setView('edit');
+    let done = false;
+    if (undoable){
+      try{ els.text.focus(); els.text.select(); done = document.execCommand('insertText', false, t); }catch{}
+    }
+    if (!done || els.text.value !== t) els.text.value = t;
+    els.text.setSelectionRange(0, 0); els.text.scrollTop = 0;
+    lastSourceText = null; updateStats(); store.set('text', t); updatePos();
+  }
   $('sampleBtn').onclick = () => { setText(SAMPLE); toast('Sample loaded'); };
   $('clearBtn').onclick = () => { setText(''); els.text.focus(); };
   $('copyBtn').onclick = async () => { try{ await navigator.clipboard.writeText(els.text.value); toast('Copied'); }catch{ els.text.select(); toast('Press Ctrl+C to copy'); } };
@@ -626,10 +1142,11 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
 
   /* ---------- keyboard ---------- */
   document.addEventListener('keydown', e => {
-    if (dlg.open) return;
+    if (document.querySelector('dialog[open]')) return;
     const inText = e.target === els.text;
     const inField = /INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName) || e.target.isContentEditable;
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); toggle(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); saveDoc(); return; }
     if (e.key === 'Escape' && mode !== 'idle'){ e.preventDefault(); stop(); return; }
     if (e.altKey && e.key === 'ArrowLeft'){ e.preventDefault(); step(-1); return; }
     if (e.altKey && e.key === 'ArrowRight'){ e.preventDefault(); step(1); return; }
@@ -643,9 +1160,18 @@ Use the speed presets for quick changes, or fine-tune speed, pitch and volume wi
 
   /* ---------- init ---------- */
   setTheme(store.get('theme', 'dark'));
-  ['rate','pitch','volume','size'].forEach(k => { const v = store.get(k, null); if (v !== null) els[k].value = v; });
+  ['rate','pitch','volume','size','gap','lh'].forEach(k => { const v = store.get(k, null); if (v !== null) els[k].value = v; });
+  setFont(store.get('font', 'atkinson'));
+  buildDict();
   els.text.value = store.get('text', SAMPLE);
-  syncLabels(); updateStats(); setMode('idle'); updatePos();
+  syncLabels(); updateStats(); setMode('idle');
+  sentences = split(els.text.value);
+  const savedPos = store.get('pos', null);   // resume where the last session stopped
+  if (savedPos && savedPos.len === els.text.value.length && savedPos.idx > 0){
+    idx = Math.min(savedPos.idx, Math.max(0, sentences.length - 1));
+  }
+  updatePos();
+  if (idx > 0) setTimeout(() => toast(`Resuming at sentence ${idx + 1} — press Stop to start over`), 400);
 
   if (!synth || !('SpeechSynthesisUtterance' in window)){
     $('unsupported').classList.add('show');
